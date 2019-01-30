@@ -16,25 +16,25 @@ Optional URL parameters with default values:
   lang=en     // Default language for error messages - fr or en (default).
   words=0     // Maximum number of (HTML) words to be displayed per entry (0 = unlimited).
 
-##Apache SSI Example
+## Apache SSI Example
     <!--#include virtual="/newsfeed.php?lang=en&max=50&url=https%3A%2F%2Fwww.yoursite.ca%2Fyourfeed.atom.xml"-->
 
-##Tips
+## Tips
   - If you see brackets around the date, the news feed can't be retrieved and is being delivered from an expired cache.
   - You can reset the cache by deleting all of the files called /tmp/newsfeed-* .
   - If it is not working for you, set $debug = true, reload your page with newsfeed.php?timeout=-1 in the URL and view source code to see additional info.
 
-###DEBUG Instructions
+### DEBUG Instructions
 1. set: debug = true
 2. Execute the PHP script. No worries, errors won't be visible.
 3. View source to see error messages.
 
 Don't forget to set debug=false when you are done troubleshooting.
 
-##Dependencies
+## Dependencies
   - Requires "allow_url_fopen = On" in php.ini.
 
-##Language:
+## Language:
 Has been tested with PHP versions 5.6 to 7.2.
 
 Release history:
