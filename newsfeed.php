@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU General Public License.
 // If not, see <http://www.gnu.org/licenses/>.
 
-/** 
+/**
  * Purpose: Converts the specified XML Atom news feed into <li> HTML entries.
  * Based on RSS to HTML (http://www.systutorials.com/136102/a-php-function-for-fetching-rss-feed-and-outputing-feed-items-as-html/) by Eric Z Ma
  *
@@ -21,7 +21,7 @@
  * @copyright © 2019 TNG Consulting Inc. <www.tngconsulting.ca>
  * @version   1.0 - 2019-01-07
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * 
+ *
  * Optional URL parameters with default values:
  *   url=https%3A%2F%2Fwww.canada.ca%2Fen%2Fstatus-women.atom.xml%3Fdisable%3Dcache   // Note: URL must be encoded.
  *   max=3       // Maximum number of entries to be displayed. 0 = All.
@@ -30,9 +30,16 @@
  *   lang=en     // Default language for error messages - fr or en (default).
  *   words=0     // Maximum number of (HTML) words to be displayed per entry (0 = unlimited).
  * Example: <!--#include virtual="/includes/newsfeed.php?lang=en&max=50&url=https%3A%2F%2Fwww.canada.ca%2Fen%2Fstatus-women.atom.xml%3Fdisable%3Dcache"-->
- * Tips: 
+ * Tips:
  *   - If you see brackets around the date, the news feed can't be retrieved and is being delivered from an expired cache.
  *   - You can reset the cache by deleting all of the files called /tmp/newsfeed-* .
+ *   - If it is not working for you, set $debug = true, reload your page with newsfeed.php?timeout=-1 in the URL and view source code to see additional info.
+ * Dependencies:
+ *   - Requires "allow_url_fopen = On" in php.ini.
+ * Language:    Has been tested with PHP versions 5.6 to 7.2.
+ * Release history:
+ *   - 1.0 - 2019-01-07 - Initial public release.
+ *   - 1.1 - 2019-01-30 - Added option to debug, no longer saving/overwriting cache if source unavailable, will now display feed when clearing cache.
  */
 
 // ----------------------------------------------
@@ -59,13 +66,13 @@ if (!empty($_GET['lang'])) {
 }
 switch ($lang) {
     case 'fr': // French.
-        $url = 'https://www.canada.ca/fr/condition-feminine.atom.xml?disable=cache'; // Note: Parameter must be encoded when specified in a URL.
+        $url = 'https://www.canada.ca/fr/nouvelles/fils-nouvelles/nouvelles-nationales.atom.xml'; // Note: Parameter must be encoded when specified in a URL.
         $string['unavailable'] = 'Ce fil de nouvelles n\'est pas disponible actuellement. Visiter <a href="https://www.canada.ca/fr/nouvelles.html">Canada.ca</a>.';
         $string['date'] = 'Y-m-d H:i';
         break;
     default:   // English.
         $lang = 'en';
-        $url = 'https://www.canada.ca/en/status-women.atom.xml?disable=cache'; // Note: Parameter must be encoded when specified in a URL.
+        $url = 'https://www.canada.ca/en/news/web-feeds/national-news.atom.xml'; // Note: Parameter must be encoded when specified in a URL.
         $string['unavailable'] = 'This news feed is not currently available. Visit <a href="https://www.canada.ca/en/news.html">Canada.ca</a>.';
         $string['date'] = 'Y-m-d H:i';
 }
@@ -110,42 +117,69 @@ echo get_atom_feed_as_html($feed_url, $max_items, $show_summary, $cache_timeout,
  */
 function get_atom_feed_as_html($feed_url, $max_items = 10, $show_summary = true, $cache_timeout = 7200, $max_words = 0, $lang = 'en', $show_date = true, $cache_prefix = '/tmp/newsfeed-') {
 
-    global $string;
+    global $string, $debug;
 
     // Get feeds and parse items.
 
     $xml = new DOMDocument();
     $cache_file = $cache_prefix . md5($feed_url);
 
-    // Load from file from cache or content from web.
-    
     // If caching is enabled, exists and has not yet expired, load the data from Cache.
     $loaded = false;
     $live = true;  // Will be false if feed can't be loaded and we are using expired cache.
-    if ($cache_timeout > 0 && is_file($cache_file) && (filemtime($cache_file) + $cache_timeout > time())) {
-        $loaded = (@$xml->load($cache_file) !== false);
-        if (!$loaded) { // Failed to load, try the live feed.
-            $loaded = (@$xml->load($feed_url) !== false);
+
+    // If cache timeout (timeout parameter) is -1, reset / delete all cache files.
+    if ($cache_timeout == -1) {
+        foreach(glob($cache_prefix . '*') as $f) {
+            unlink($f);
         }
+        echo ('cache-reset');
+    }
+
+    // Load XML content from a cache file or from from the web.
+
+    if ($cache_timeout > 0 && is_file($cache_file) && (filemtime($cache_file) + $cache_timeout > time())) {
+        
+        // Load the cached XML feed if it exists and has not yet expired.
+        $loaded = (@$xml->load($cache_file) !== false);
+        if (!$loaded) {
+            // Failed to load from Cache.
+            $err = libxml_get_last_error();
+            $errcode = $debug ? "$err->message (1)" : '';
+            // Try the live feed.
+            $loaded = (@$xml->load($feed_url) !== false);
+            $err = libxml_get_last_error();
+            $errcode = $debug ? ", $err->message (2)" : '';
+        }
+        
     } else {
+        
         // Load the XML feed from the web.
         $loaded = (@$xml->load($feed_url) !== false);
-        if (!$loaded) { // Failed to load, try the cache.
+        if (!$loaded) {
+            // Failed to load the live feed.
+            $err = libxml_get_last_error();
+            $errcode = $debug ? "$err->message (3)" : '';
             if (is_file($cache_file)) {
                 // If the cached version is still available, use it even if it has expired.
                 $loaded = (@$xml->load($cache_file) !== false);
+                $err = libxml_get_last_error();
+                $errcode = $debug ? ",$err->message (4)" : '';
                 $live = $false;
+            } else {
+                $errcode .= $debug && !$loaded ? ', Cache unavailable (5)' : '';
             }
         }
-        if ($cache_timeout > 0) {
-            // Save loaded data to cache.
+
+        // Only save cache to file if we managed to load the feed.
+        if ($cache_timeout > 0 && $loaded) {
             $xml->save($cache_file);
         }
     }
-    
+
     // If failed to load, return unavailable message.
     if (!$loaded) {
-        return $string['unavailable'];
+        return $string['unavailable'] . ($debug ? '<span style="display:none;"> (Error: ' . $errcode . ')</span>' : '');
     }
 
     // Parse out XML data.
@@ -163,7 +197,7 @@ function get_atom_feed_as_html($feed_url, $max_items = 10, $show_summary = true,
             $item['content'] = $content->item(0)->nodeValue;
         }
         array_push($entries, $item);
-        
+
         // Stop processing when we have either hit the specified max item limit.
         if (empty($max_items)) {
             break;
@@ -190,7 +224,7 @@ function get_atom_feed_as_html($feed_url, $max_items = 10, $show_summary = true,
         // Show description/summary.
         if ($show_summary) {
             $summary = $entry['desc'];
-            
+
             // Limit maximum number of words.
             if (!empty($max_words)) {
                 $word_list = explode(' ', $summary);
