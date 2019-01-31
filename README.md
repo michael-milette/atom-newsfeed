@@ -30,14 +30,20 @@ Look for the configuration section near the top of the newsfeed.php file. You wi
 
 Most of these can be overridden through optional parameters in the URL.
 
-## Optional URL parameters 
-(with default values)
+## Optional URL parameters (with default values)
+
   IMPORTANT: URL must be encoded in the next line:
+  
   url=https%3A%2F%2Fwww.yoursite.com%2Fyourfeed.atom.xml   
+  
   max=3       // Maximum number of entries to be displayed. 0 = All.
+  
   desc=0      // 1 = Show, 0 = Hide description/summary.
+  
   timeout=600 // Default number of seconds for cache to live (600 = 10 minutes, 0 = no cache, -1 = purge cache).
+  
   lang=en     // Default language for error messages - fr or en (default).
+  
   words=0     // Maximum number of (HTML) words to be displayed per entry (0 = unlimited).
 
 ### DEBUG Instructions
