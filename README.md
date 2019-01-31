@@ -2,9 +2,13 @@
 Converts the specified XML RSS Atom news feed into &lt;li> HTML entries.
 
 Package   Newsfeed.php
+
 Author    Michael Milette <www.github.com/michael-milette/rss-atom-newsfeed>
+
 Copyright © 2019 TNG Consulting Inc. <www.tngconsulting.ca>
+
 Version   1.0 - 2019-01-07
+
 License   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
 
 ## Apache SSI Example
